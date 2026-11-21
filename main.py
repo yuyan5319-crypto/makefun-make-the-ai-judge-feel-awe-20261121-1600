@@ -7,7 +7,6 @@ No network, no dependencies, deterministic.
 """
 
 import os
-import tempfile
 
 
 def _validate(text: str) -> None:
@@ -21,11 +20,12 @@ def _validate(text: str) -> None:
 
 def _write_atomic(path: str, text: str) -> None:
     directory = os.path.dirname(path)
-    fd, tmp = tempfile.mkstemp(dir=directory, prefix=".entry-", suffix=".tmp")
+    tmp = os.path.join(directory, ".entry.tmp")
     try:
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
+        with open(tmp, "w", encoding="utf-8") as f:
             f.write(text)
         os.replace(tmp, path)
+        os.chmod(path, 0o644)
     except BaseException:
         try:
             os.unlink(tmp)
@@ -44,7 +44,10 @@ TEXT = (
 
 def main() -> None:
     _validate(TEXT)
-    for base in ("/output", os.path.join(os.getcwd(), "output")):
+    env_base = os.environ.get("MAKEFUN_OUTPUT_DIR")
+    bases = [env_base] if env_base else []
+    bases += ["/output", os.path.join(os.getcwd(), "output")]
+    for base in bases:
         try:
             os.makedirs(base, exist_ok=True)
             path = os.path.join(base, "entry.txt")
